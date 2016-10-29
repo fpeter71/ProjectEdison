@@ -554,10 +554,10 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 		} // subwindows
 
 		// logs
-		std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
-		std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
-		std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
-		std::cout << cyclecounter * DeltaTime << std::endl;
+		//std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
+		//std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
+		//std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
+		//std::cout << cyclecounter * DeltaTime << std::endl;
 
 		cyclecounter++;
 	}

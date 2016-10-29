@@ -20,7 +20,8 @@
 // megszabadulunk a "deprecated conversion from string constant to 'char*' [-Wwrite-strings]" figyelmeztetést?l
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
-enum program_state { home, method, area, timeofrec, heatandchip, focus, recandcalc, res, wifi, info };
+// method, area, timeofrec removed
+enum program_state { home, setupparameters, heatandchip, focus, recandcalc, res, wifi, info };
 
 double get_millis(void)
 {
@@ -53,6 +54,7 @@ uint8_t buttons_state = 0;
 
 int detection_method = -1;
 int area_of_pic = 1;
+int temp_control_on = 0;
 double measure_time = 10.0 * 1000.0; // msec
 double results[6];
 
@@ -93,7 +95,7 @@ int main(int argc, char **argv)
 	etm::coMCU etpic(30.0, 37.0);
 	etm::Interface etinterf("/opt/bgt/pix");
 	etm::Cap etcap("/home/root");
-	etm::Info etinfo("MFL202M", 1, 0);
+	etm::Info etinfo("MFL202M", 1, 1);
 	etm::Wifi etwifi("wlan0");
 
     if(!etlog.is_open()){
@@ -165,9 +167,9 @@ int main(int argc, char **argv)
 
     		if(buttons_state & BTN_A_MASK){
     			ps = heatandchip;
-
     			etinterf.home_screen_reset();
     			etpic.start_temp_control();
+    			temp_control_on = 1;
 
 				while(!etpic.is_temp_ok()){
 					etinterf.temp_screen(etpic);
@@ -185,10 +187,11 @@ int main(int argc, char **argv)
 					etinterf.chip_screen();
 
 					if(buttons_state & BTN_C_MASK){
-						if(etpic.is_chip_in()){
-							break;
-						}
-					}else if(buttons_state & BTN_D_MASK){
+						etinterf.chip_screen_reset();
+						ps = setupparameters;
+						break;
+					}
+					else if(buttons_state & BTN_D_MASK){
 						etinterf.chip_screen_reset();
 						ps = home;
 						break;
@@ -202,75 +205,48 @@ int main(int argc, char **argv)
 					mssleep(250);
 				}
 
-    			etinterf.chip_screen_reset();
-
-    			ps = method;
-
     		} else if(buttons_state & BTN_B_MASK){
+    			// no heating path
+				ps = heatandchip;
+				temp_control_on = 0;
+
+				etinterf.home_screen_reset();
+
+				for(;;){
+
+					buttons_state = etpic.get_buttons_state();
+					etinterf.chip_screen();
+
+					if(buttons_state & BTN_C_MASK){
+						etinterf.chip_screen_reset();
+						ps = setupparameters;
+						break;
+					}else if(buttons_state & BTN_D_MASK){
+						etinterf.chip_screen_reset();
+						ps = home;
+						break;
+					}
+
+					if(!running){
+						return_number = 10;
+						goto cam_end;
+					}
+
+					mssleep(250);
+				}
+			}
+    		else if(buttons_state & BTN_C_MASK){
     			ps = wifi;
-    		} else if(buttons_state & BTN_C_MASK){
+    		} else if(buttons_state & BTN_D_MASK){
     			ps = info;
     		}
 
-    	} else if(ps == method) {
-    		etinterf.method_screen();
-
-    		if(buttons_state & BTN_A_MASK){
-    			detection_method = 0;
-    			ps = area;
-    			etinterf.method_screen_reset();
-			} else if(buttons_state & BTN_B_MASK){
-				detection_method = 1;
-				ps = area;
-				etinterf.method_screen_reset();
-			} else if(buttons_state & BTN_C_MASK){
-				detection_method = -1;
-				ps = area;
-				etinterf.method_screen_reset();
-			} else if(buttons_state & BTN_D_MASK){
-				ps = home;
-				etinterf.method_screen_reset();
-			}
-
-    	} else if(ps == area) {
-    		etinterf.area_screen();
-
-    		if(buttons_state & BTN_A_MASK){
-    			area_of_pic = 1;
-    			ps = timeofrec;
-    			etinterf.area_screen_reset();
-			} else if(buttons_state & BTN_B_MASK){
-				area_of_pic = 2;
-				ps = timeofrec;
-				etinterf.area_screen_reset();
-			} else if(buttons_state & BTN_C_MASK){
-				area_of_pic = 4;
-				ps = timeofrec;
-				etinterf.area_screen_reset();
-			} else if(buttons_state & BTN_D_MASK){
-				ps = method;
-				etinterf.area_screen_reset();
-			}
-
-    	} else if(ps == timeofrec) {
-			etinterf.time_screen();
-
-			if(buttons_state & BTN_A_MASK){
-				measure_time = 5 * 1000;
-				ps = focus;
-				etinterf.time_screen_reset();
-			} else if(buttons_state & BTN_B_MASK){
-				measure_time = 10 * 1000;
-				ps = focus;
-				etinterf.time_screen_reset();
-			} else if(buttons_state & BTN_C_MASK){
-				measure_time = 30 * 1000;
-				ps = focus;
-				etinterf.time_screen_reset();
-			} else if(buttons_state & BTN_D_MASK){
-				ps = area;
-				etinterf.time_screen_reset();
-			}
+    	} else if(ps == setupparameters) {
+    		// default settings
+    		detection_method = 1;
+			area_of_pic = 4;
+			measure_time = 5 * 1000;
+			ps = focus;
 
 		} else if(ps == focus){
 
@@ -284,7 +260,7 @@ int main(int argc, char **argv)
 					break;
 				}else if(buttons_state & BTN_D_MASK){
 					etinterf.focus_help_screen_reset();
-					ps = timeofrec;
+					ps = home;
 					break;
 				}
 
@@ -296,9 +272,10 @@ int main(int argc, char **argv)
 				mssleep(250);
 			}
 
-			etinterf.focus_help_screen_reset();
-
-    		focus_sub(etlog, etcam, etpic, etinterf);
+			if (ps != home) {
+				etinterf.focus_help_screen_reset();
+				focus_sub(etlog, etcam, etpic, etinterf);
+			}
 
 			if(return_number != 0){
 				goto cam_end;
@@ -323,7 +300,10 @@ int main(int argc, char **argv)
 
 			etinterf.calc_screen_reset();
 
-			etpic.stop_temp_control();
+			if (temp_control_on) {
+				etpic.stop_temp_control();
+				temp_control_on = 0;
+			}
 
 			// atment a res ablak vegere, hogy legyen lehetoseg letolteni torles elott
 			//etcap.del();
@@ -489,7 +469,7 @@ void focus_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interfa
 			ps = recandcalc;
 			break;
 		} else if(buttons_state & BTN_D_MASK){
-			ps = timeofrec;
+			ps = home;
 
 			etpic.stop();
 
