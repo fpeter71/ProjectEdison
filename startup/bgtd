@@ -1,0 +1,27 @@
+#!/bin/bash
+ 
+# Startup script for projectedison
+# location:
+# /etc/init.d/bgtd
+
+case "$1" in
+	start)
+		echo "Starting bgt ..."
+		bgt -s &
+		;;
+	stop)
+		echo "Stoping bgt ..."
+		kill -s SIGINT $(pidof bgt)
+		;;
+
+	restart)
+		echo "Restarting bgt ..."
+		kill -s SIGINT $(pidof bgt)
+		bgt -s &
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart}"
+	
+esac
+
+exit 0
