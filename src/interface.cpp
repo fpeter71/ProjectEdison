@@ -27,7 +27,7 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 
 	memset(buffer, 0, 512);
-	sprintf(buffer, "%s/home.jpg", _path);
+	sprintf(buffer, "%s/homescreennoheat.jpg", _path);
 	_img_home = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
 	if(!_img_home.data){
