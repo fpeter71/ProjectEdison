@@ -72,17 +72,17 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 
 	memset(buffer, 0, 512);
-	sprintf(buffer, "%s/results.jpg", _path);
+	sprintf(buffer, "%s/slidemove.jpg", _path);
 	_img_info = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
 	if(!_img_info.data){
 		_err_num = 8;
 		return;
 	}
-
+	
 	memset(buffer, 0, 512);
-	sprintf(buffer, "%s/areaselection.jpg", _path);
-	_img_area = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+	sprintf(buffer, "%s/nospermatall.jpg", _path);
+	_img_nosperm = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
 	if(!_img_area.data){
 		_err_num = 9;
@@ -90,8 +90,8 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 
 	memset(buffer, 0, 512);
-	sprintf(buffer, "%s/methodselection.jpg", _path);
-	_img_method = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+	sprintf(buffer, "%s/moved.jpg", _path);
+	_img_moved = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
 	if(!_img_method.data){
 		_err_num = 10;
@@ -99,8 +99,8 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 
 	memset(buffer, 0, 512);
-	sprintf(buffer, "%s/timeofrecording.jpg", _path);
-	_img_time = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+	sprintf(buffer, "%s/toodense.jpg", _path);
+	_img_toodense = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
 	if(!_img_time.data){
 		_err_num = 11;
@@ -141,14 +141,14 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	_chip_screen = false;
 	_temp_screen = false;
 	_info_screen = false;
-	_area_screen = false;
-	_method_screen = false;
-	_time_screen = false;
+	_res_nosperm = false;
+	_res_moved = false;
+	_res_toodense = false;
 	_calc_screen = false;
 	_res_screen = false;
 	_wifi_screen = false;
 	_focus_help_screen = false;
-
+		
 	_is_open = true;
 }
 
