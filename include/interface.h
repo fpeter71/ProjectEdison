@@ -87,14 +87,14 @@ public:
 		void chip_screen(void);
 		void chip_screen_reset(void) { _chip_screen = false; };
 
-		void area_screen(void);
-		void area_screen_reset(void) { _area_screen = false; };
+		void res_nosperm_screen(void);
+		void res_nosperm_screen_reset(void) { _res_nosperm = false; };
 
-		void method_screen(void);
-		void method_screen_reset(void) { _method_screen = false; };
+		void res_moved_screen(void);
+		void res_moved_screen_reset(void) { _res_moved = false; };
 
-		void time_screen(void);
-		void time_screen_reset(void) { _time_screen = false; };
+		void res_toodense_screen(void);
+		void res_toodense_screen_reset(void) { _res_toodense = false; };
 
 		void wifi_screen(char *text, bool list, etm::Wifi &etwifi);
 		void wifi_screen_pos(int32_t pos);
