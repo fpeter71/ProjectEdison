@@ -13,6 +13,9 @@
 using namespace std;
 
 #define SHOWIT
+#define TRACK
+//#define EVAL
+#define TRACKLINES
 
 // detectionmethod if -1, it comes from the settings file
 int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, int howmanyquarters,  int analysistime, char *statisticsfilename, char *trackfilename, char *snapshotfilename, double *CABCD)
@@ -107,21 +110,33 @@ int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, in
 	int ROIwidth = 400;
 	SpermDetectors singleusedetector(config);
 
-	// ide kell valami exit condicio
-	int cyclecounter = 1;
-	// max a minute :-)
-	int zs=1;
-			
-	while( waitKey(1) != 27 ) 
+	// skip first 10 frames
+	int cyclecounter = 10;
+	int zs=10;
+	for (int i=0;i<10;i++)
+		capture.getnext(img_buffer);
+
+	char key = 0; 
+	while( key != 27 ) 
 	{
-		if (zs==capture.get_frame_count())
+		key= cv::waitKey(30);
+
+		if (zs>=capture.get_frame_count())
 			break;
 
 		capture.getnext(img_buffer);
-		
+
 		if (capture.islast() || (capture.get_err_num() != 0))
 			break;
 				
+		// wait
+		if ( key == 32 ) {
+			cout<<"Press spacebar to continue!"<<endl;
+			while(waitKey(100) != 32) {;};
+		}
+		if ((key!=0)&&(key!=-1)&&(key != 32))
+			break;
+		
 		// fölösleges, mert csak 1 byte lesz és kész.
 		uint32_t w,h;
 		img_buffer_ptr = img_buffer;
@@ -153,19 +168,20 @@ imshow("focus",sperm);
 		// limit ROI size to 250 per frame according to sperm count
 		if (cyclecounter == 1)
 		{
-			EstimatedSpermCount = CountSpermsMat(detectionmethod, frame, singleusedetector)/SubWindowNum;
-			if (EstimatedSpermCount<250)
-				ROIwidth = 400;
-			else if	(EstimatedSpermCount<300)
-				ROIwidth = 350;
+			EstimatedSpermCount = CountSpermsMat(detectionmethod, frame, singleusedetector);
+			if (EstimatedSpermCount>1200)
+				SubWindowNum = 4;
+			else if	(EstimatedSpermCount>600)
+				SubWindowNum = 2;
 			else
-				ROIwidth = 300;
+				SubWindowNum = 1;
 		}
 		// limit ROI size to 250 per frame according to sperm count
 
 		if (SubWindowNum != 1)
 		{
-			cvtColor(2*(frame - 50), rgbframe, CV_GRAY2RGB);
+			cvtColor(1.5*(frame - 50), rgbframe, CV_GRAY2RGB);
+			//cvtColor(frame, rgbframe, CV_GRAY2RGB);
 			
 		};
 
@@ -204,6 +220,7 @@ imshow("focus",sperm);
 			// Detect the sperms
 			// 0 - small circular like sperms, quick
 			// 1 - oval, larger sperms, slower
+
 			switch (detectionmethod) {
 				case 0: 
 					detector[subwindow].Quick(inputimage, centers[subwindow]); 
@@ -212,13 +229,14 @@ imshow("focus",sperm);
 					detector[subwindow].Dense(inputimage, centers[subwindow]); 
 					break;	
 			}
-			
+
 			// show before convert to microns
 			// show
 			cv::Point a,b;
 			double xoffs, yoffs;
 			if (SubWindowNum == 1) {
-				cvtColor(2*(inputimage - 50), rgbframe, CV_GRAY2RGB);
+				cvtColor(1.5*(inputimage - 50), rgbframe, CV_GRAY2RGB);
+				
 				xoffs = 0;
 				yoffs = 0;
 			} else
@@ -236,39 +254,50 @@ imshow("focus",sperm);
 			}
 #endif			
 			// valid tracks
-			/*
+			
 			for(unsigned int i=0;i<tracker[subwindow].tracks.size();i++)
 			{ 
 				if (tracker[subwindow].tracks[i]->valid) {
-					
-					for(int j=0;j<tracker[subwindow].tracks[i]->realtrace.size()-1;j++)
+			
+#ifdef TRACKLINES
+					for(int j=0;j<tracker[subwindow].tracks[i]->trace.size()-1;j++)
 					{
 						//	line(rgbframe,tracker.tracks[i]->trace[j],tracker.tracks[i]->trace[j+1],Colors[tracker.tracks[i]->track_id%9], 1, CV_AA);
-						a.x = tracker[subwindow].tracks[i]->realtrace[j].x/MicronPerPixel + xoffs;
-						a.y = tracker[subwindow].tracks[i]->realtrace[j].y/MicronPerPixel + yoffs;
-						b.x = tracker[subwindow].tracks[i]->realtrace[j+1].x/MicronPerPixel + xoffs;
-						b.y = tracker[subwindow].tracks[i]->realtrace[j+1].y/MicronPerPixel + yoffs;
+						a.x = tracker[subwindow].tracks[i]->trace[j].x/MicronPerPixel + xoffs;
+						a.y = tracker[subwindow].tracks[i]->trace[j].y/MicronPerPixel + yoffs;
+						b.x = tracker[subwindow].tracks[i]->trace[j+1].x/MicronPerPixel + xoffs;
+						b.y = tracker[subwindow].tracks[i]->trace[j+1].y/MicronPerPixel + yoffs;
 						
 						line(rgbframe,a,b,Colors[ (int)tracker[subwindow].tracks[i]->track_id % 9], 1, CV_AA);
 					}
-					
-					/*
+
+
+					cv::Point ccenter;
+					ccenter.x = tracker[subwindow].tracks[i]->KF->GetPrediction().x /MicronPerPixel + xoffs;
+					ccenter.y = tracker[subwindow].tracks[i]->KF->GetPrediction().y /MicronPerPixel + yoffs;
+
+					circle(rgbframe, ccenter, 2, Scalar(255,128, 120)); 
+
+
+#else					
 					cv::Point ccenter;
 					ccenter.x = tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1].x/MicronPerPixel + xoffs;
 					ccenter.y = tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1].y/MicronPerPixel + yoffs;
 
 					circle(rgbframe, ccenter, 2, Scalar(128,128, 255)); 
-				
+#endif
 				}
 			}
-				*/	
+			
 			// convert to micrometers
 			for(unsigned int i=0;i<centers[subwindow].size();i++)
 				centers[subwindow][i] = centers[subwindow][i] * MicronPerPixel;
 
 			// the real stuff, tracking done here
+#ifdef TRACK
 			if(centers[subwindow].size()>0)
 				tracker[subwindow].Update(centers[subwindow], capture.lasttime);
+#endif 
 
 			// statistics
 			// concentration in 1 milliliter  =  1e+12 cubic micrometer
@@ -280,16 +309,66 @@ imshow("focus",sperm);
 		} // subwindows
 		//fprintf(fuck, "\n");
 
+		
 #ifdef SHOWIT			
-		imshow("main",rgbframe);
+		imshow("ESC to step next video, space to stop/start!",rgbframe);
 #endif
+		// check sanity
+		int totalsperms = 0;
+		bool spermsarewelldistributed = true;
+		
+		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
+			totalsperms += centers[subwindow].size();
+			
+		if (totalsperms > 1400) 
+		{
+			spermsarewelldistributed = false;
+			std::cout << "Too much: " << totalsperms << endl;
+			key = (int)'1';
+			break;
+		}
 
+		double std_dev = 0, mean_val = totalsperms/SubWindowNum;
+		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
+			std_dev += (centers[subwindow].size() - mean_val)  * (centers[subwindow].size() - mean_val);
+		// below 200 not checked at all
+		if (totalsperms < 200)
+			std_dev = 0;
+		else
+		{
+			std_dev = sqrt( std_dev / SubWindowNum );
+			std_dev /= mean_val;
+		}
+
+		if (std_dev > 0.3) {
+			spermsarewelldistributed = false;
+			cout << "Very wrong distributed! " << std_dev << endl;
+			key = (int)'2';
+			break;
+		}
+
+		// minoseg
+		/*
+		int totaltracks = 0;
+		int totalvalidtracks = 0;
+		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
+			for(unsigned int i=0;i<tracker[subwindow].tracks.size();i++)
+			{ 
+				totaltracks++;
+				if (tracker[subwindow].tracks[i]->valid) {
+					totalvalidtracks ++;
+				}
+			}
+		cout << " track " << totaltracks << ", valid track " << totalvalidtracks << " per total sperm " << totalsperms << " = " << totalvalidtracks/totalsperms << endl;			
+		*/
+
+#ifdef TRACK
 		// logs
-		std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
-		std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
-		std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
-		std::cout << cyclecounter * DeltaTime << " seconds " << std::endl  << std::endl;
-
+//		std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
+	//	std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
+//		std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
+	//	std::cout << cyclecounter * DeltaTime << " seconds " << std::endl  << std::endl;
+#endif
 		cyclecounter++;
 		zs++;
 	}
@@ -323,28 +402,142 @@ imshow("focus",sperm);
 
 	free(img_buffer);
 	//fclose(fuck);
-	return 0;
+
+#ifdef EVAL
+	if (key == -1)
+	{
+		cout << "Classes in this file:"<< endl;
+		cout << "0 perfect" << endl;
+		cout << "1 too dense, not visible correctly" << endl;
+		cout << "2 bubbles, other artifacts in the video" << endl;
+		cout << "3 motion of the sample" << endl;
+		cout<<"Press opinion (0,1,2..) or ESC to finish to continue!"<<endl;
+		while( key == -1) {
+			key = waitKey(100) ;
+		};
+	}
+#endif
+
+	return key;
 }
 
-void findgolden(const char *name, double *abcd)
+
+// detectionmethod if -1, it comes from the settings file
+int SaveAVI(const char *filename, const char *videoname)
+{
+	char nonconstfilename[256];
+	strcpy(nonconstfilename, filename);
+	char noncostavi[256];
+	strcpy(noncostavi, videoname);
+
+	// input video open
+	CapRead capture;
+	capture.openfile(nonconstfilename);
+  
+	if(!capture.is_open())
+	{
+		cerr << "Problem opening video source" << endl;
+		return -1;
+	}
+	
+	// let it show
+	Mat rgbframe;	
+	
+	// get a frame to a mat
+	// fölösleges, mert csak 1 byte lesz és kész.
+	Mat frame(capture.height(), capture.width(), CV_8UC1);
+
+	uint8_t *img_buffer;
+	uint8_t *img_buffer_ptr;
+	img_buffer = (uint8_t*)malloc(capture.framesize());
+	
+	// ide kell valami exit condicio
+	int cyclecounter = 1;
+	// max a minute :-)
+	int zs=1;
+		
+	char key = 0; 
+	
+	Size SizeOfFrame = cv::Size( 800, 600);
+	VideoWriter video(noncostavi, CV_FOURCC('M', 'J', 'P', 'G'), 24, SizeOfFrame, true);
+		
+	while( key != 27 ) 
+	{
+		
+		key= cv::waitKey(30);
+
+		if (zs==capture.get_frame_count())
+			break;
+
+		capture.getnext(img_buffer);
+		
+		if (capture.islast() || (capture.get_err_num() != 0))
+			break;
+				
+		// wait
+		if ( key == 32 ) {
+			cout<<"Press spacebar to continue!"<<endl;
+			while(waitKey(100) != 32) {;};
+		}
+		if ((key!=0)&&(key!=-1)&&(key != 32))
+			break;
+		
+		// fölösleges, mert csak 1 byte lesz és kész.
+		uint32_t w,h;
+		img_buffer_ptr = img_buffer;
+		for(h=0; h < capture.height(); h++)
+			for(w=0; w < capture.width(); w++)
+			{
+				frame.at<uint8_t>(Point(w,h))= *img_buffer_ptr;
+				img_buffer_ptr ++;
+			}
+
+		Mat inputimage =  frame;
+		double min, max;
+		cv::minMaxLoc(inputimage, &min, &max);
+		inputimage = inputimage - min + 10;
+		cv::minMaxLoc(inputimage, &min, &max);
+		inputimage = inputimage/max*240;
+		cvtColor(inputimage, rgbframe, CV_GRAY2RGB);
+
+		video.write(rgbframe);
+		
+#ifdef SHOWIT			
+		imshow("ESC to step next video, space to stop/start!",rgbframe);
+#endif
+		cyclecounter++;
+		zs++;
+	}
+
+	free(img_buffer);
+	video.release();
+
+	return key;
+}
+
+
+
+
+int findgolden(const char *name, double *abcd)
 {
 	// find golden
 	FILE *golden;
 	char buf[256];
 
-	golden = fopen("golden.prn", "r");
+	golden = fopen("goldenref_csak_jok_casaval.csv", "r");
 	if (golden == NULL)
 	{
-		cerr << "golden.prn file is not opened." << endl;
-		return;
+		cerr << "goldenref_csak_jok_casaval.csv file is not opened." << endl;
+		return 0;
 	}
 
 	fseek(golden, 0, SEEK_SET);
 	while(! feof(golden)) {
 		fscanf(golden, "%s %lf %lf %lf %lf\n", buf, &abcd[0], &abcd[1], &abcd[2], &abcd[3]);
+		strcat(buf, ".cap");
 		if (strcmp(name, buf) == 0) {
-			fclose(golden);	
-			return;
+			fclose(golden);		
+			return 1;
 		}
 	}
 
@@ -353,23 +546,31 @@ void findgolden(const char *name, double *abcd)
 	abcd[2] = 0;
 	abcd[3] = 0;
 	fclose(golden);	
+	return 0;
 }
 
 int main(int argc, char **argv)
 {
 	FILE *statfile = NULL;
-	statfile = fopen("results.csv", "w");
-	if (statfile == NULL)
-	{
-		cerr << "Statistics file is not opened." << endl;
-	}
-//	fprintf(statfile, "Filename; Concentration; Grade A; Grade B; Grade C; Grade D; Sperm count\n");
+	FILE *evalfile = NULL;
+#ifdef TRACK
+	statfile = fopen("results.dat", "w");
+#endif
+#ifdef EVAL
+	evalfile = fopen("jorossz.csv", "w");
+	cout << "Classes in this file:"<< endl;
+	cout << "0 perfect" << endl;
+	cout << "1 too dense, not visible correctly" << endl;
+	cout << "2 bubbles, other artifacts in the video" << endl;
+	cout << "3 motion of the sample" << endl;
+
+#endif
 
 	FILE *dirfile = NULL;
 	char buf[256];
 	vector <string> filelist;
 
-	system("dir /b *.cap > dirlist.txt");
+	system("dir /b /s *.cap > dirlist.txt");
 	dirfile = fopen("dirlist.txt", "r");
 	if (dirfile == NULL)
 	{
@@ -383,17 +584,20 @@ int main(int argc, char **argv)
 			filelist.push_back(string(buf));
 		}
 	fclose(dirfile);
-	
+	system("del dirlist.txt");
+
 	if (filelist.size() == 0) {
 		cerr << "No file list..." << endl;
 		return -1;
 	}
 
 	cout << filelist.size() << " video files found." << endl;
-	
+	cout << "ESC to step next video, space to stop/start!" << endl;
+
 	// analzis
 	int i=0;
 	double CABCDtimearea[8];
+	double CABCDref[4];
 	char settings[256] = "MFL_settings.ini";
 	int analysistime = 100; // limit will be the cap file length
 	char statisticsfilename[256] = "mfl.stat";
@@ -404,39 +608,75 @@ int main(int argc, char **argv)
 
 	for (i=0; i<filelist.size(); i++)
 	{
+	//	if (findgolden( (filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str(), CABCDref) )
+		{
+			cout << endl << endl << i << "/" << filelist.size() << endl;
+			cout << filelist[i] << " " << i << "/" << filelist.size() << endl;
+
+	#ifdef SHOWIT			
+			namedWindow("ESC to step next video, space to stop/start!",WINDOW_NORMAL); // _AUTOSIZE
+	#endif
+			sprintf(statisticsfilename, "%d.stat", i );
+	
+			int key = AnalyseVideoPC(filelist[i].c_str(), settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
+			//int key = SaveAVI(filelist[i].c_str(), (filelist[i].substr(0,filelist[i].find_last_of(".")) + ".avi").c_str());
+			
 		
-#ifdef SHOWIT			
-		namedWindow("main",WINDOW_AUTOSIZE);
-#endif
-		sprintf(statisticsfilename, "%d.stat", i);
-		AnalyseVideoPC(filelist[i].c_str(), settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
+	#ifdef SHOWIT			
+			destroyAllWindows();
+	#endif
+			if (key == 27)
+				break;
+
+	#ifdef EVAL
+			fprintf(evalfile, "%s %s %d\n", filelist[i].c_str(), (filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str(), key - (int)'0');
+	#endif
+
+
+	#ifdef TRACK
+			if (key !=  (int)'1')
+			{
+				std::cout << "Final data of " << filelist[i] << std::endl;
+
+				std::cout << "Video time: " << CABCDtimearea[5] << std::endl;
+				std::cout << "Area: " << CABCDtimearea[6] << std::endl;
+
+				std::cout << "concentration [millions/ml]:   " << CABCDtimearea[0]  << std::endl;
+				std::cout << "grade A: " <<  CABCDtimearea[1] << std::endl;
+				std::cout << "grade B: " <<  CABCDtimearea[2] << std::endl;
+				std::cout << "grade C: " <<  CABCDtimearea[3] << std::endl;
+				std::cout << "grade D: " <<  CABCDtimearea[4] << std::endl;
+
+				std::cout << "grade D: " <<  CABCDtimearea[4] << std::endl;
+
+				/*
+				if (i==0)
+					fprintf(statfile, "Filename; Concentration; Grade A; Grade B; Grade C; Grade D; Sperm count\n");
 		
-#ifdef SHOWIT			
-		destroyAllWindows();
-#endif
+				sprintf(dummy, "%.1lf;%.1lf;%.1lf;%.1lf;%.1lf;%d", CABCDtimearea[0],  CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3],  CABCDtimearea[4], (int)CABCDtimearea[7]);
+				dstr = string(dummy);
+				replace(dstr.begin(), dstr.end(), '.',',');
+				fprintf(statfile, "%s;%s\n", filelist[i].c_str(), dstr.c_str() );
+				*/
 
-		std::cout << "Final data of " << filelist[i] << std::endl;
+				fprintf(statfile, "%s ",(filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str());
+				fprintf(statfile, "%.1lf %.1lf %.1lf %.1lf    ",CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3],  CABCDtimearea[4]);
+				fprintf(statfile, "%.1lf %.1lf  ",CABCDtimearea[1] + CABCDtimearea[2] +  CABCDtimearea[3],  CABCDtimearea[1] + CABCDtimearea[2] );
+				fprintf(statfile, "%.1lf %.1lf\n", CABCDref[0],  CABCDref[1]);
+			
+				cout << CABCDtimearea[1] + CABCDtimearea[2] +  CABCDtimearea[3] <<  "/" <<  CABCDtimearea[1] + CABCDtimearea[2] << "   ";
+				cout << CABCDref[0] << "/" <<  CABCDref[1] << endl;
+			}
 
-		std::cout << "Video time: " << CABCDtimearea[5] << std::endl;
-		std::cout << "Area: " << CABCDtimearea[6] << std::endl;
+#endif		
 
-		std::cout << "concentration [millions/ml]:   " << CABCDtimearea[0]  << std::endl;
-		std::cout << "grade A: " <<  CABCDtimearea[1] << std::endl;
-		std::cout << "grade B: " <<  CABCDtimearea[2] << std::endl;
-		std::cout << "grade C: " <<  CABCDtimearea[3] << std::endl;
-		std::cout << "grade D: " <<  CABCDtimearea[4] << std::endl;
-
-//		sprintf(dummy, "%.1lf;%.1lf;%.1lf;%.1lf;%.1lf;%d", CABCDtimearea[0],  CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3],  CABCDtimearea[4], (int)CABCDtimearea[7]);
-//		dstr = string(dummy);
-//		replace(dstr.begin(), dstr.end(), '.',',');
-//		fprintf(statfile, "%s;%s\n", filelist[i].c_str(), dstr.c_str() );
-
-		fprintf(statfile, "%.1lf %.1lf %.1lf %.1lf ", CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3],  CABCDtimearea[4]);
-		findgolden(filelist[i].c_str(), CABCDtimearea);
-		fprintf(statfile, "%.1lf %.1lf %.1lf %.1lf\n", CABCDtimearea[0],  CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3]);
+		} // in golden		
 	}
+	if(statfile!=NULL)
+		fclose(statfile);
+	if(evalfile!=NULL)
+		fclose(evalfile);
 
-	fclose(statfile);
 	std::cout << "Ready" << std::endl;
 
 	return 0;
