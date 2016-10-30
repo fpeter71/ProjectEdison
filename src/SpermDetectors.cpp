@@ -369,6 +369,10 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	int SubWindowNum;
 	int TrackDataStored;
 
+	// err feedback
+	int errorcode = 0;
+
+	// this part remained, but not used. Automatically selected
 	// method selection if -1, read from config
 	if (detectionmethod == -1)
 		detectionmethod = (int)config.GetParam("DetectionMethod", 0);
@@ -383,6 +387,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 		SubWindowNum = (int)config.GetParam("ProcessedSubWindows", 1);
 	if( (SubWindowNum != 1) && (SubWindowNum != 2) && (SubWindowNum != 4))
 		SubWindowNum = 1;
+	// this part remained, but not used. Automatically selected
 
 	TrackDataStored = (int)config.GetParam("TrackDataStored", 0);
 
@@ -437,27 +442,27 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	vector<Point2d> centers[4];
 	Rect myROI;
 
+	// skip first 10 frames, due to movement of pushing the fucking button
+	for (int i=0;i<10;i++)
+		capture.getnext(img_buffer);
+	
 	// limit ROI size to 250 per frame according to sperm count
 	unsigned int EstimatedSpermCount;
 	int ROIwidth = 400;
 	SpermDetectors singleusedetector(config);
-
-	// ide kell valami exit condicio
-	int cyclecounter = 1;
-	// max a minute :-)
-	for(int zs=0;zs<analysistime*24;zs++)
+	
+	// main loop
+	for(int cyclecounter=1; cyclecounter<analysistime*24; cyclecounter++)
 	{
-		if (zs == capture.get_frame_count())
+		if (cyclecounter >= capture.get_frame_count())
 			break;
 			
-		etinterf.calc_screen_update((double)zs / (double)capture.get_frame_count());
+		etinterf.calc_screen_update((double)cyclecounter / (double)capture.get_frame_count());
 
 		capture.getnext(img_buffer);
-		
 		if (capture.islast() || (capture.get_err_num() != 0))
 			break;
 				
-		// fĂ¶lĂ¶sleges, mert csak 1 byte lesz Ă©s kĂ©sz.
 		uint32_t w,h;
 		img_buffer_ptr = img_buffer;
 		for(h=0; h < capture.height(); h++)
@@ -467,10 +472,8 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 				img_buffer_ptr ++;
 			}
 					
-		// eddig folosleges
-		// save 1st frame
-		//if ((TrackDataStored != 0) && (cyclecounter == 1)) {
-		if (cyclecounter == 1) {
+		// save 1st frame if needed
+		if ((TrackDataStored != 0) && (cyclecounter == 1)) {
 			try
 			{ 
 				imwrite("test.jpg", frame );
@@ -486,12 +489,18 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 		{
 			EstimatedSpermCount = CountSpermsMat(detectionmethod, frame, singleusedetector);
 			cout << "estimated: " << EstimatedSpermCount << endl;
-			if (EstimatedSpermCount<250)
-				ROIwidth = 400;
-			else if	(EstimatedSpermCount<300)
-				ROIwidth = 350;
+			if (EstimatedSpermCount>1800)
+			{
+				cout << "too dense, exiting. " << endl;
+				errorcode = -2;
+				break;
+			}
+			if (EstimatedSpermCount>1200)
+				SubWindowNum = 1;
+			else if	(EstimatedSpermCount>700)
+				SubWindowNum = 2;
 			else
-				ROIwidth = 300;
+				SubWindowNum = 4;
 		}
 		// limit ROI size to 250 per frame according to sperm count
 
@@ -554,12 +563,10 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 		} // subwindows
 
 		// logs
-		//std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
-		//std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
-		//std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
-		//std::cout << cyclecounter * DeltaTime << std::endl;
-
-		cyclecounter++;
+		std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
+		std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
+		std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
+		std::cout << cyclecounter * DeltaTime << std::endl;
 	}
 
 	// close all open tracks to use the open statfile before it closes
@@ -587,7 +594,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 
 	free(img_buffer);
 	
-	return 0;
+	return errorcode;
 }
 
 
