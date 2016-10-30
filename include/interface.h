@@ -28,11 +28,12 @@ private:
 		bool _chip_screen;
 		bool _temp_screen;
 		bool _info_screen;
-		bool _area_screen;
-		bool _method_screen;
-		bool _time_screen;
 		bool _calc_screen;
 		bool _res_screen;
+		bool _res_nosperm;
+		bool _res_moved;
+		bool _res_toodense;
+		
 		bool _wifi_screen;
 		bool _focus_help_screen;
 
@@ -44,9 +45,9 @@ private:
 		cv::Mat _img_temp;
 		cv::Mat _img_cow;
 		cv::Mat _img_info;
-		cv::Mat _img_area;
-		cv::Mat _img_method;
-		cv::Mat _img_time;
+		cv::Mat _img_nosperm;
+		cv::Mat _img_moved;
+		cv::Mat _img_toodense;
 		cv::Mat _img_calc;
 		cv::Mat _img_res;
 		cv::Mat _img_wifi;
