@@ -19,9 +19,8 @@
 
 // megszabadulunk a "deprecated conversion from string constant to 'char*' [-Wwrite-strings]" figyelmeztetést?l
 #pragma GCC diagnostic ignored "-Wwrite-strings"
-
 // method, area, timeofrec removed
-enum program_state { home, setupparameters, heatandchip, focus, recandcalc, res, wifi, info };
+enum program_state { home, setupparameters, heatandchip, focus, recandcalc, res, res_nosperm, res_moved, res_toodense, wifi, info };
 
 double get_millis(void)
 {
@@ -257,6 +256,8 @@ int main(int argc, char **argv)
 				buttons_state = etpic.get_buttons_state();
 
 				if(buttons_state & BTN_C_MASK){
+					etinterf.focus_help_screen_reset();
+					focus_sub(etlog, etcam, etpic, etinterf);
 					break;
 				}else if(buttons_state & BTN_D_MASK){
 					etinterf.focus_help_screen_reset();
@@ -270,11 +271,6 @@ int main(int argc, char **argv)
 				}
 
 				mssleep(250);
-			}
-
-			if (ps != home) {
-				etinterf.focus_help_screen_reset();
-				focus_sub(etlog, etcam, etpic, etinterf);
 			}
 
 			if(return_number != 0){
@@ -296,7 +292,8 @@ int main(int argc, char **argv)
 
 			etinterf.calc_screen();
 
-			AnalyseVideo(fname, etinterf, INI_PATH, detection_method, area_of_pic, (int)(measure_time / 1000.0), "", "", "", results);
+			int qualityoftrack;
+			qualityoftrack = AnalyseVideo(fname, etinterf, INI_PATH, detection_method, area_of_pic, (int)(measure_time / 1000.0), "", "", "", results);
 
 			etinterf.calc_screen_reset();
 
@@ -305,22 +302,50 @@ int main(int argc, char **argv)
 				temp_control_on = 0;
 			}
 
-			// atment a res ablak vegere, hogy legyen lehetoseg letolteni torles elott
-			//etcap.del();
-
-			ps = res;
+			// separate good and bad
+			// 0 good, -1 video problem, -2 too dense, -3 empty, -4 drift
+			switch(qualityoftrack) {
+				case 0:
+					ps = res; break;
+				case -2:
+					ps = res_toodense; break;
+				case -3:
+					ps = res_nosperm; break;
+				case -4:
+					ps = res_moved; break;
+				default:
+					ps = res; break;
+			}
 
     	} else if(ps == res){
     		etinterf.res_screen(results);
 
     		if(buttons_state & BTN_D_MASK){
-				
-				// torles csak itt
+    			// torles csak itt
 				etcap.del();
 
     			etinterf.res_screen_reset();
 
     			ps = home;
+    		}
+
+    	} else if(ps == res_nosperm){
+    		etinterf.res_nosperm_screen();
+    		if(buttons_state & BTN_D_MASK){
+    			etinterf.res_nosperm_screen_reset();
+    			ps = res;
+    		}
+    	} else if(ps == res_toodense){
+    		etinterf.res_toodense_screen();
+    		if(buttons_state & BTN_D_MASK){
+    			etinterf.res_toodense_screen_reset();
+    			ps = res;
+    		}
+    	} else if(ps == res_moved){
+    		etinterf.res_moved_screen();
+    		if(buttons_state & BTN_D_MASK){
+    			etinterf.res_moved_screen_reset();
+    			ps = res;
     		}
     	}else if(ps == wifi){
 

@@ -394,7 +394,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	// input video open
 	CapRead capture;
 	capture.openfile(filename);
-  
+cout << capture.get_frame_count() << " " << capture.framesize() << " " << capture.width() << " " << capture.height() << endl;
 	if(!capture.is_open())
 	{
 		cerr << "Problem opening video source" << endl;
@@ -436,7 +436,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1), 
 		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1), 
 		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1)};
-		
+
 	// detectors
 	SpermDetectors detector[4] = {SpermDetectors(config), SpermDetectors(config), SpermDetectors(config), SpermDetectors(config)};
 	vector<Point2d> centers[4];
@@ -445,25 +445,24 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	// skip first 10 frames, due to movement of pushing the fucking button
 	for (int i=0;i<10;i++)
 		capture.getnext(img_buffer);
-	
+
 	// limit ROI size to 250 per frame according to sperm count
 	unsigned int EstimatedSpermCount;
 	int ROIwidth = 400;
 	SpermDetectors singleusedetector(config);
-	
+
 	// main loop
-	for(int cyclecounter=1; cyclecounter<analysistime*24; cyclecounter++)
+	uint32_t w,h;
+	Mat inputimage;
+	int cyclecounter = 1;
+	while(cyclecounter < capture.get_frame_count()-10)
 	{
-		if (cyclecounter >= capture.get_frame_count())
-			break;
-			
 		etinterf.calc_screen_update((double)cyclecounter / (double)capture.get_frame_count());
 
 		capture.getnext(img_buffer);
 		if (capture.islast() || (capture.get_err_num() != 0))
 			break;
-				
-		uint32_t w,h;
+
 		img_buffer_ptr = img_buffer;
 		for(h=0; h < capture.height(); h++)
 			for(w=0; w < capture.width(); w++)
@@ -472,18 +471,6 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 				img_buffer_ptr ++;
 			}
 					
-		// save 1st frame if needed
-		if ((TrackDataStored != 0) && (cyclecounter == 1)) {
-			try
-			{ 
-				imwrite("test.jpg", frame );
-				cout << "snapshot ok." << endl;
-			}
-		catch (runtime_error& ex) 
-			{
-				cerr << "Snapshot is not opened." << endl;
-			}}
-	
 		// limit ROI size to 250 per frame according to sperm count
 		if (cyclecounter == 1)
 		{
@@ -493,6 +480,12 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 			{
 				cout << "too dense, exiting. " << endl;
 				errorcode = -2;
+				break;
+			}
+			if (EstimatedSpermCount < 100)
+			{
+				cout << "nothing, exiting. " << endl;
+				errorcode = -3;
 				break;
 			}
 			if (EstimatedSpermCount>1200)
@@ -534,7 +527,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 				// the impossible
 				Rect myROI(200, 150, ROIwidth, 300);
 			
-			Mat inputimage =  frame(myROI);
+			inputimage =  frame(myROI);
 				
 			// Detect the sperms
 			// 0 - small circular like sperms, quick
@@ -564,9 +557,11 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 
 		// logs
 		std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
-		std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
-		std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
-		std::cout << cyclecounter * DeltaTime << std::endl;
+		//std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
+		//std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
+		//std::cout << cyclecounter * DeltaTime << std::endl;
+
+		cyclecounter++;
 	}
 
 	// close all open tracks to use the open statfile before it closes
@@ -576,15 +571,25 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 		detector[subwindow].~SpermDetectors();
 	}
 	capture.shut();
-	
+
 	// results, concentration, abcd grades
-	CABCD[0] = stats.GetConcentration();
-	CABCD[1] = stats.GetGradeA();
-	CABCD[2] = stats.GetGradeB();
-	CABCD[3] = stats.GetGradeC();
-	CABCD[4] = stats.GetGradeD();
-	CABCD[5] = stats.GetSpermCount() * SubWindowNum;
-	
+	if (errorcode != 0)
+	{
+		CABCD[0] = stats.GetConcentration();
+		CABCD[1] = stats.GetGradeA();
+		CABCD[2] = stats.GetGradeB();
+		CABCD[3] = stats.GetGradeC();
+		CABCD[4] = stats.GetGradeD();
+		CABCD[5] = stats.GetSpermCount() * SubWindowNum;
+	} else {
+		CABCD[0] = 0;
+		CABCD[1] = 0;
+		CABCD[2] = 0;
+		CABCD[3] = 0;
+		CABCD[4] = 0;
+		CABCD[5] = 0;
+	}
+
 	if (statfile != NULL) {
 		fclose(statfile);
 	}
@@ -593,7 +598,8 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	}
 
 	free(img_buffer);
-	
+	cout << "Analysis ready. " << endl;
+
 	return errorcode;
 }
 

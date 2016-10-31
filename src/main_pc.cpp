@@ -17,6 +17,45 @@ using namespace std;
 //#define EVAL
 #define TRACKLINES
 
+
+class SampleMovementCheck {
+	int distribution[2][2];
+	int	count;
+public:
+	void Clear() { count = 0; for(int i=0;i<2;i++) for(int j=0;j<2;j++) distribution[i][j] = 0;};
+	void Update(Point2f current, Point2f prediction) 
+	{
+		count ++;
+			
+		int x = (current.x - prediction.x) > 0;
+		int y = (current.y - prediction.y) > 0;
+		distribution[x][y]++;
+
+	};
+
+	double CheckLimits() 
+	{  
+		double std_dev = 0, mean_val = (distribution[0][0]+distribution[0][1]+distribution[1][0]+distribution[1][1])/4;
+		
+		std_dev += (distribution[0][0] - mean_val)  * (distribution[0][0] - mean_val);
+		std_dev += (distribution[0][1] - mean_val)  * (distribution[0][1] - mean_val);
+		std_dev += (distribution[1][0] - mean_val)  * (distribution[1][0] - mean_val);
+		std_dev += (distribution[1][1] - mean_val)  * (distribution[0][1] - mean_val);
+		std_dev = sqrtf(std_dev);
+		std_dev /= mean_val;
+
+		// means drift
+		return (count > 50) && (std_dev > 1.3);
+	};
+
+	void ResetCounter() { 
+		count = 0; 
+		for(int i=0;i<2;i++) for(int j=0;j<2;j++) distribution[i][j] = 0;
+	};
+
+	SampleMovementCheck() { count = 0; for(int i=0;i<2;i++) for(int j=0;j<2;j++) distribution[i][j] = 0;};
+};
+
 // detectionmethod if -1, it comes from the settings file
 int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, int howmanyquarters,  int analysistime, char *statisticsfilename, char *trackfilename, char *snapshotfilename, double *CABCD)
 {
@@ -109,6 +148,7 @@ int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, in
 	unsigned int EstimatedSpermCount;
 	int ROIwidth = 400;
 	SpermDetectors singleusedetector(config);
+	SampleMovementCheck movementcheck;
 
 	// skip first 10 frames
 	int cyclecounter = 10;
@@ -117,6 +157,7 @@ int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, in
 		capture.getnext(img_buffer);
 
 	char key = 0; 
+	SubWindowNum = -1;
 	while( key != 27 ) 
 	{
 		key= cv::waitKey(30);
@@ -165,27 +206,31 @@ imshow("focus",sperm);
 				cerr << "Snapshot is not opened." << endl;
 			}}
 	
-		// limit ROI size to 250 per frame according to sperm count
-		if (cyclecounter == 1)
+		// limit ROI size to 250-300 per frame according to sperm count
+		if (SubWindowNum == -1)
 		{
 			EstimatedSpermCount = CountSpermsMat(detectionmethod, frame, singleusedetector);
+			if (EstimatedSpermCount>1800)
+			{
+				SubWindowNum = 1;
+				cout << " too much " << endl;
+			}
 			if (EstimatedSpermCount>1200)
-				SubWindowNum = 4;
-			else if	(EstimatedSpermCount>600)
+				SubWindowNum = 1;
+			else if	(EstimatedSpermCount>700)
 				SubWindowNum = 2;
 			else
-				SubWindowNum = 1;
+				SubWindowNum = 4;
+			
+			cout << "EstimatedSpermCount " << EstimatedSpermCount << " selection " << SubWindowNum << endl;
+			
 		}
 		// limit ROI size to 250 per frame according to sperm count
 
-		if (SubWindowNum != 1)
-		{
-			cvtColor(1.5*(frame - 50), rgbframe, CV_GRAY2RGB);
-			//cvtColor(frame, rgbframe, CV_GRAY2RGB);
-			
-		};
-
+		cvtColor(1.5*(frame - 50), rgbframe, CV_GRAY2RGB);
+		
 		// subwindow cycle
+		movementcheck.ResetCounter();
 		for(int subwindow = 0;subwindow <SubWindowNum; subwindow++)
 		{
 			// fps changed!
@@ -199,8 +244,10 @@ imshow("focus",sperm);
 				myROI = Rect(200, 150, ROIwidth, 300);
 			else if (SubWindowNum == 2) {
 				switch(subwindow) {
-				case 0: myROI = Rect(0+400-ROIwidth, 150, ROIwidth, 300); break;
-				default: myROI = Rect(399, 150, ROIwidth, 300); break;
+				//case 0: myROI = Rect(0+400-ROIwidth, 150, ROIwidth, 300); break;
+				//default: myROI = Rect(399, 150, ROIwidth, 300); break;
+				case 0: myROI = Rect(200, 0, ROIwidth, 300); break;
+				default: myROI = Rect(200, 299, ROIwidth, 300); break;
 				}
 			}
 			else if (SubWindowNum == 4) {
@@ -234,16 +281,9 @@ imshow("focus",sperm);
 			// show
 			cv::Point a,b;
 			double xoffs, yoffs;
-			if (SubWindowNum == 1) {
-				cvtColor(1.5*(inputimage - 50), rgbframe, CV_GRAY2RGB);
-				
-				xoffs = 0;
-				yoffs = 0;
-			} else
-			{
-				xoffs = myROI.x;
-				yoffs = myROI.y;
-			}
+			xoffs = myROI.x;
+			yoffs = myROI.y;
+
 #ifdef SHOWIT			
 			for(unsigned int i=0;i<centers[subwindow].size();i++)
 			{ 
@@ -254,11 +294,14 @@ imshow("focus",sperm);
 			}
 #endif			
 			// valid tracks
-			
+			movementcheck.ResetCounter();
 			for(unsigned int i=0;i<tracker[subwindow].tracks.size();i++)
 			{ 
+				// movement
 				if (tracker[subwindow].tracks[i]->valid) {
-			
+					movementcheck.Update(tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-10], tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1]);
+				
+
 #ifdef TRACKLINES
 					for(int j=0;j<tracker[subwindow].tracks[i]->trace.size()-1;j++)
 					{
@@ -305,11 +348,10 @@ imshow("focus",sperm);
 			stats.UpdateGrages(tracker[subwindow].tracks, 1 / ((ChannelHeight * MicronPerPixel*300 * MicronPerPixel * ROIwidth)/1e12) / 1e6);
 			
 			//fprintf(fuck, "%d ", (int)centers[subwindow].size() );
-		
+			
 		} // subwindows
 		//fprintf(fuck, "\n");
-
-		
+				
 #ifdef SHOWIT			
 		imshow("ESC to step next video, space to stop/start!",rgbframe);
 #endif
@@ -319,14 +361,21 @@ imshow("focus",sperm);
 		
 		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
 			totalsperms += centers[subwindow].size();
-			
-		if (totalsperms > 1400) 
-		{
-			spermsarewelldistributed = false;
-			std::cout << "Too much: " << totalsperms << endl;
-			key = (int)'1';
-			break;
-		}
+		
+		
+		cout << (int)(movementcheck.CheckLimits()) << " " << movementcheck.count << endl;
+		
+		if (cyclecounter == 20)
+			std::cout << "totalsperms " << totalsperms << endl;
+
+		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
+			if ( centers[subwindow].size() > 500) 
+			{
+				spermsarewelldistributed = false;
+				std::cout << "Too much: " << totalsperms << endl;
+				key = (int)'1';
+				break;
+			}
 
 		double std_dev = 0, mean_val = totalsperms/SubWindowNum;
 		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
@@ -606,6 +655,7 @@ int main(int argc, char **argv)
 	char dummy[256]  = "";
 	string dstr;
 
+	// 45 84 116 121
 	for (i=0; i<filelist.size(); i++)
 	{
 	//	if (findgolden( (filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str(), CABCDref) )
@@ -620,7 +670,13 @@ int main(int argc, char **argv)
 	
 			int key = AnalyseVideoPC(filelist[i].c_str(), settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
 			//int key = SaveAVI(filelist[i].c_str(), (filelist[i].substr(0,filelist[i].find_last_of(".")) + ".avi").c_str());
-			
+			//int key;
+			//Interface dummy;
+			//key= cv::waitKey(30);
+			//char filename[256];
+			//strcpy(filename, filelist[i].c_str());
+			//AnalyseVideo(filename,dummy, settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
+
 		
 	#ifdef SHOWIT			
 			destroyAllWindows();

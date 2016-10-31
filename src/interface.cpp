@@ -72,7 +72,7 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 
 	memset(buffer, 0, 512);
-	sprintf(buffer, "%s/slidemove.jpg", _path);
+	sprintf(buffer, "%s/results.jpg", _path);
 	_img_info = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
 	if(!_img_info.data){
@@ -82,27 +82,27 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	
 	memset(buffer, 0, 512);
 	sprintf(buffer, "%s/nospermatall.jpg", _path);
-	_img_nosperm = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+	_img_res_nosperm = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
-	if(!_img_area.data){
+	if(!_img_res_nosperm.data){
 		_err_num = 9;
 		return;
 	}
 
 	memset(buffer, 0, 512);
 	sprintf(buffer, "%s/moved.jpg", _path);
-	_img_moved = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+	_img_res_moved = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
-	if(!_img_method.data){
+	if(!_img_res_moved.data){
 		_err_num = 10;
 		return;
 	}
 
 	memset(buffer, 0, 512);
 	sprintf(buffer, "%s/toodense.jpg", _path);
-	_img_toodense = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+	_img_res_toodense = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
-	if(!_img_time.data){
+	if(!_img_res_toodense.data){
 		_err_num = 11;
 		return;
 	}
@@ -141,9 +141,10 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	_chip_screen = false;
 	_temp_screen = false;
 	_info_screen = false;
-	_res_nosperm = false;
-	_res_moved = false;
-	_res_toodense = false;
+	_res_screen = false;
+	_res_nosperm_screen = false;
+	_res_moved_screen = false;
+	_res_toodense_screen = false;
 	_calc_screen = false;
 	_res_screen = false;
 	_wifi_screen = false;
@@ -369,37 +370,37 @@ void etm::Interface::info_screen(etm::Info &etinfo, etm::Wifi &etwifi)
 }
 
 
-void etm::Interface::area_screen(void)
+void etm::Interface::res_nosperm_screen(void)
 {
-	if(_area_screen)
+	if(_res_nosperm_screen)
 		return;
 
-	_img = _img_area;
+	_img = _img_res_nosperm;
 	draw_image(0, 0);
 
-	_area_screen = true;
+	_res_nosperm_screen = true;
 }
 
-void etm::Interface::method_screen(void)
+void etm::Interface::res_moved_screen(void)
 {
-	if(_method_screen)
+	if(_res_moved_screen)
 		return;
 
-	_img = _img_method;
+	_img = _img_res_moved;
 	draw_image(0, 0);
 
-	_method_screen = true;
+	_res_moved_screen = true;
 }
 
-void etm::Interface::time_screen(void)
+void etm::Interface::res_toodense_screen(void)
 {
-	if(_time_screen)
+	if(_res_toodense_screen)
 		return;
 
-	_img = _img_time;
+	_img = _img_res_toodense;
 	draw_image(0, 0);
 
-	_time_screen = true;
+	_res_toodense_screen = true;
 }
 
 void etm::Interface::calc_screen(void)

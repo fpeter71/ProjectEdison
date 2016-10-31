@@ -132,10 +132,10 @@ void etm::Cap::shut(void)
 			}
 		}
 
-		free(_mem_buffer);
-
 		fchmod(_cap_fd, S_IRUSR | S_IWUSR);		// írási és olvasási jogok a tulajdonosnak
 		close(_cap_fd);							// fájl lezárása
+
+		free(_mem_buffer);
 
 		_is_open = false;
 	}
