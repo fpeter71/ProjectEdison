@@ -30,10 +30,10 @@ private:
 		bool _info_screen;
 		bool _calc_screen;
 		bool _res_screen;
-		bool _res_nosperm;
-		bool _res_moved;
-		bool _res_toodense;
-		
+		bool _res_nosperm_screen;
+		bool _res_moved_screen;
+		bool _res_toodense_screen;
+
 		bool _wifi_screen;
 		bool _focus_help_screen;
 
@@ -45,9 +45,9 @@ private:
 		cv::Mat _img_temp;
 		cv::Mat _img_cow;
 		cv::Mat _img_info;
-		cv::Mat _img_nosperm;
-		cv::Mat _img_moved;
-		cv::Mat _img_toodense;
+		cv::Mat _img_res_nosperm;
+		cv::Mat _img_res_moved;
+		cv::Mat _img_res_toodense;
 		cv::Mat _img_calc;
 		cv::Mat _img_res;
 		cv::Mat _img_wifi;
@@ -88,13 +88,13 @@ public:
 		void chip_screen_reset(void) { _chip_screen = false; };
 
 		void res_nosperm_screen(void);
-		void res_nosperm_screen_reset(void) { _res_nosperm = false; };
+		void res_nosperm_screen_reset(void) { _res_nosperm_screen = false; };
 
 		void res_moved_screen(void);
-		void res_moved_screen_reset(void) { _res_moved = false; };
+		void res_moved_screen_reset(void) { _res_moved_screen = false; };
 
 		void res_toodense_screen(void);
-		void res_toodense_screen_reset(void) { _res_toodense = false; };
+		void res_toodense_screen_reset(void) { _res_toodense_screen = false; };
 
 		void wifi_screen(char *text, bool list, etm::Wifi &etwifi);
 		void wifi_screen_pos(int32_t pos);
