@@ -65,15 +65,25 @@ public:
 	double GetConcentration() { if (_samplenum==0) return 0; else return Concentration/_samplenum; }
 	double GetSpermCount() { if (_samplenum==0) return 0; else return SpermCount/_samplenum; }
 
-	double GetGradeA() { return (_gradesamplenum==0) ? -1 : floor(1000*gradeA/_gradesamplenum + 0.5)/10; };
-	double GetGradeB() { return (_gradesamplenum==0) ? -1 : floor(1000*gradeB/_gradesamplenum + 0.5)/10; };
-	double GetGradeC() { return (_gradesamplenum==0) ? -1 : floor(1000*gradeC/_gradesamplenum + 0.5)/10; };
-	double GetGradeD() { return (_gradesamplenum==0) ? -1 : floor(1000*gradeD/_gradesamplenum + 0.5)/10; };
+	double GetGradeA() { return (_gradesamplenum==0) ? 0 : floor(1000*gradeA/_gradesamplenum + 0.5)/10; };
+	double GetGradeB() { return (_gradesamplenum==0) ? 0 : floor(1000*gradeB/_gradesamplenum + 0.5)/10; };
+	double GetGradeC() { return (_gradesamplenum==0) ? 0 : floor(1000*gradeC/_gradesamplenum + 0.5)/10; };
+	double GetGradeD() { return (_gradesamplenum==0) ? 0 : floor(1000*gradeD/_gradesamplenum + 0.5)/10; };
 
 	Statistics();
 	Statistics(ReadConfig &config);
 };
 
+
+class SampleMovementCheck {
+	double xdrift, ydrift;
+	int	count;
+	int detected;
+public:
+	void Update(Point2f current, Point2f prediction);
+	double CheckLimits();
+	SampleMovementCheck();
+};
 
 // a produkcio
 // filename a *.cap
