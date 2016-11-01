@@ -19,41 +19,29 @@ using namespace std;
 
 
 class SampleMovementCheck {
-	int distribution[2][2];
+	double xdrift, ydrift;
 	int	count;
+	int detected;
 public:
-	void Clear() { count = 0; for(int i=0;i<2;i++) for(int j=0;j<2;j++) distribution[i][j] = 0;};
 	void Update(Point2f current, Point2f prediction) 
 	{
 		count ++;
-			
-		int x = (current.x - prediction.x) > 0;
-		int y = (current.y - prediction.y) > 0;
-		distribution[x][y]++;
+		
+		xdrift += (current.x - prediction.x) ;
+		ydrift += (current.y - prediction.y) ;
 
 	};
 
 	double CheckLimits() 
 	{  
-		double std_dev = 0, mean_val = (distribution[0][0]+distribution[0][1]+distribution[1][0]+distribution[1][1])/4;
-		
-		std_dev += (distribution[0][0] - mean_val)  * (distribution[0][0] - mean_val);
-		std_dev += (distribution[0][1] - mean_val)  * (distribution[0][1] - mean_val);
-		std_dev += (distribution[1][0] - mean_val)  * (distribution[1][0] - mean_val);
-		std_dev += (distribution[1][1] - mean_val)  * (distribution[0][1] - mean_val);
-		std_dev = sqrtf(std_dev);
-		std_dev /= mean_val;
-
 		// means drift
-		return (count > 50) && (std_dev > 1.3);
+		detected |= sqrt(xdrift*xdrift + ydrift*ydrift)/count > 12;
+		return detected ;
 	};
 
-	void ResetCounter() { 
-		count = 0; 
-		for(int i=0;i<2;i++) for(int j=0;j<2;j++) distribution[i][j] = 0;
-	};
+	void ResetCounter() {  count = 1;  xdrift = 0;ydrift = 0; detected=0;}
 
-	SampleMovementCheck() { count = 0; for(int i=0;i<2;i++) for(int j=0;j<2;j++) distribution[i][j] = 0;};
+	SampleMovementCheck() { count = 1; xdrift = 0;ydrift = 0;detected=0;};
 };
 
 // detectionmethod if -1, it comes from the settings file
@@ -134,10 +122,10 @@ int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, in
 	// float _dt, float _Accel_noise_mag, double _dist_thres, int _maximum_allowed_skipped_frames,int _max_trace_length)
 	double KFA = config.GetParam("KalmanFilterAcceleration", 0.0042);
 	CTracker tracker[4] = {
-		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 10, -1), 
-		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 10, -1), 
-		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 10, -1), 
-		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 10, -1)};
+		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 5, -1), 
+		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 5, -1), 
+		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 5, -1), 
+		CTracker (DeltaTime, KFA, statfile, trackfile, 20, 5, -1)};
 		
 	// detectors
 	SpermDetectors detector[4] = {SpermDetectors(config), SpermDetectors(config), SpermDetectors(config), SpermDetectors(config)};
@@ -158,6 +146,8 @@ int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, in
 
 	char key = 0; 
 	SubWindowNum = -1;
+	movementcheck.ResetCounter();
+
 	while( key != 27 ) 
 	{
 		key= cv::waitKey(30);
@@ -214,6 +204,7 @@ imshow("focus",sperm);
 			{
 				SubWindowNum = 1;
 				cout << " too much " << endl;
+				break;
 			}
 			if (EstimatedSpermCount>1200)
 				SubWindowNum = 1;
@@ -230,7 +221,7 @@ imshow("focus",sperm);
 		cvtColor(1.5*(frame - 50), rgbframe, CV_GRAY2RGB);
 		
 		// subwindow cycle
-		movementcheck.ResetCounter();
+		
 		for(int subwindow = 0;subwindow <SubWindowNum; subwindow++)
 		{
 			// fps changed!
@@ -294,22 +285,22 @@ imshow("focus",sperm);
 			}
 #endif			
 			// valid tracks
-			movementcheck.ResetCounter();
 			for(unsigned int i=0;i<tracker[subwindow].tracks.size();i++)
 			{ 
 				// movement
 				if (tracker[subwindow].tracks[i]->valid) {
-					movementcheck.Update(tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-10], tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1]);
+					if ((tracker[subwindow].tracks[i]->get_filterred_speed() < 35) && (tracker[subwindow].tracks[i]->get_filterred_speed() > 5))
+						movementcheck.Update(tracker[subwindow].tracks[i]->trace[0], tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1]);
 				
-
 #ifdef TRACKLINES
-					for(int j=0;j<tracker[subwindow].tracks[i]->trace.size()-1;j++)
+				if ((tracker[subwindow].tracks[i]->get_filterred_speed() < 35) && (tracker[subwindow].tracks[i]->get_filterred_speed() > 5))
+					//for(int j=0;j<tracker[subwindow].tracks[i]->trace.size()-1;j++)
 					{
 						//	line(rgbframe,tracker.tracks[i]->trace[j],tracker.tracks[i]->trace[j+1],Colors[tracker.tracks[i]->track_id%9], 1, CV_AA);
-						a.x = tracker[subwindow].tracks[i]->trace[j].x/MicronPerPixel + xoffs;
-						a.y = tracker[subwindow].tracks[i]->trace[j].y/MicronPerPixel + yoffs;
-						b.x = tracker[subwindow].tracks[i]->trace[j+1].x/MicronPerPixel + xoffs;
-						b.y = tracker[subwindow].tracks[i]->trace[j+1].y/MicronPerPixel + yoffs;
+						a.x = tracker[subwindow].tracks[i]->trace[0].x/MicronPerPixel + xoffs;
+						a.y = tracker[subwindow].tracks[i]->trace[0].y/MicronPerPixel + yoffs;
+						b.x = tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1].x/MicronPerPixel + xoffs;
+						b.y = tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1].y/MicronPerPixel + yoffs;
 						
 						line(rgbframe,a,b,Colors[ (int)tracker[subwindow].tracks[i]->track_id % 9], 1, CV_AA);
 					}
@@ -362,8 +353,7 @@ imshow("focus",sperm);
 		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
 			totalsperms += centers[subwindow].size();
 		
-		
-		cout << (int)(movementcheck.CheckLimits()) << " " << movementcheck.count << endl;
+		cout << movementcheck.CheckLimits()  << endl;
 		
 		if (cyclecounter == 20)
 			std::cout << "totalsperms " << totalsperms << endl;
@@ -656,7 +646,7 @@ int main(int argc, char **argv)
 	string dstr;
 
 	// 45 84 116 121
-	for (i=0; i<filelist.size(); i++)
+	for (i=116; i<filelist.size(); i++)
 	{
 	//	if (findgolden( (filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str(), CABCDref) )
 		{

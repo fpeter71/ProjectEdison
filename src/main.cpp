@@ -55,7 +55,10 @@ int detection_method = -1;
 int area_of_pic = 1;
 int temp_control_on = 0;
 double measure_time = 10.0 * 1000.0; // msec
+
 double results[6];
+double accumulatedresults[6];
+int resultsnumber;
 
 #define INI_PATH	"/etc/bgt/MFL_settings.ini"
 
@@ -68,6 +71,8 @@ void sig_handler(int signo)
 }
 
 void *thread_fcn(void *threadarg);
+void microscope_start(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interface &etinterf);
+void microscope_stop(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic);
 void focus_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interface &etinterf);
 void capture_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interface &etinterf, etm::Cap &etcap);
 void temp_sub(etm::coMCU &etpic);
@@ -245,6 +250,11 @@ int main(int argc, char **argv)
     		detection_method = 1;
 			area_of_pic = 4;
 			measure_time = 5 * 1000;
+
+			// clear statistics
+			for(int k=0;k<6;k++) accumulatedresults[k] = 0;
+			resultsnumber = 0;
+
 			ps = focus;
 
 		} else if(ps == focus){
@@ -257,6 +267,8 @@ int main(int argc, char **argv)
 
 				if(buttons_state & BTN_C_MASK){
 					etinterf.focus_help_screen_reset();
+
+					microscope_start(etlog, etcam, etpic, etinterf);
 					focus_sub(etlog, etcam, etpic, etinterf);
 					break;
 				}else if(buttons_state & BTN_D_MASK){
@@ -295,12 +307,22 @@ int main(int argc, char **argv)
 			int qualityoftrack;
 			qualityoftrack = AnalyseVideo(fname, etinterf, INI_PATH, detection_method, area_of_pic, (int)(measure_time / 1000.0), "", "", "", results);
 
-			etinterf.calc_screen_reset();
-
-			if (temp_control_on) {
-				etpic.stop_temp_control();
-				temp_control_on = 0;
+			// 0 good, let us add to the prev results
+			if (qualityoftrack == 0) {
+				for(int k=0;k<6;k++)
+					accumulatedresults[k] += results[k];
+				resultsnumber++;
 			}
+
+			// correct results as average, if the first is bad, the results are already 0
+			if (resultsnumber > 0) {
+				for(int k=0;k<5;k++)
+					results[k] = accumulatedresults[k]/resultsnumber;
+				// spermcount just summed up
+				results[5] = accumulatedresults[5];
+			}
+
+			etinterf.calc_screen_reset();
 
 			// separate good and bad
 			// 0 good, -1 video problem, -2 too dense, -3 empty, -4 drift
@@ -320,33 +342,43 @@ int main(int argc, char **argv)
     	} else if(ps == res){
     		etinterf.res_screen(results);
 
-    		if(buttons_state & BTN_D_MASK){
-    			// torles csak itt
+    		if(buttons_state & BTN_C_MASK){
+    			// repeated measurement
 				etcap.del();
+				etinterf.res_screen_reset();
 
+				ps = recandcalc;
+			} else if(buttons_state & BTN_D_MASK){
+				// end of trial, go home
+				microscope_stop(etlog, etcam, etpic);
+
+    			etcap.del();
     			etinterf.res_screen_reset();
+
+    			// swithc off heating if returning to home screen only
+    			if (temp_control_on) {
+    				etpic.stop_temp_control();
+    				temp_control_on = 0;
+    			}
 
     			ps = home;
     		}
 
     	} else if(ps == res_nosperm){
     		etinterf.res_nosperm_screen();
-    		if(buttons_state & BTN_D_MASK){
-    			etinterf.res_nosperm_screen_reset();
-    			ps = res;
-    		}
+    		mssleep(2000);
+			etinterf.res_nosperm_screen_reset();
+			ps = res;
     	} else if(ps == res_toodense){
     		etinterf.res_toodense_screen();
-    		if(buttons_state & BTN_D_MASK){
-    			etinterf.res_toodense_screen_reset();
-    			ps = res;
-    		}
+    		mssleep(2000);
+			etinterf.res_toodense_screen_reset();
+			ps = res;
     	} else if(ps == res_moved){
     		etinterf.res_moved_screen();
-    		if(buttons_state & BTN_D_MASK){
-    			etinterf.res_moved_screen_reset();
-    			ps = res;
-    		}
+    		mssleep(2000);
+   			etinterf.res_moved_screen_reset();
+   			ps = res;
     	}else if(ps == wifi){
 
     		etwifi.enable();
@@ -446,7 +478,7 @@ prog_end:
     exit(return_number);
 }
 
-void focus_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interface &etinterf)
+void microscope_start(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interface &etinterf)
 {
 	if(etcam.start_stream()){
 		etlog.write(LOG_INFO, "stream started");
@@ -458,7 +490,21 @@ void focus_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interfa
 	}
 
 	etpic.cam_led_on();
+}
 
+void microscope_stop(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic)
+{
+	if(etcam.stop_stream()){
+		etlog.write(LOG_INFO, "stream stopped");
+	} else {
+		etlog.writef(LOG_ERROR, "unable to stop the stream (%d)", etcam.get_err_num());
+	}
+
+	etpic.cam_led_off();
+}
+
+void focus_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Interface &etinterf)
+{
 	for(;;){
 
 		buttons_state = etpic.get_buttons_state();
@@ -571,8 +617,6 @@ void capture_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Inter
 		}
 	}
 
-	etpic.cam_led_off();
-
 	etcap.shut();
 
 	if(etcap.get_err_num() != 0){
@@ -580,12 +624,6 @@ void capture_sub(etm::Log &etlog, etm::Cam &etcam, etm::coMCU &etpic, etm::Inter
 	}
 
 	etinterf.rec_screen_reset();
-
-	if(etcam.stop_stream()){
-		etlog.write(LOG_INFO, "stream stopped");
-	} else {
-		etlog.writef(LOG_ERROR, "unable to stop the stream (%d)", etcam.get_err_num());
-	}
 
 	return_number = 0;
 }

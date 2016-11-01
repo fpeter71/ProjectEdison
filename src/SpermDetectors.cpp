@@ -3,6 +3,28 @@
 // igy minden ".." string lesz es nem char*
 using namespace std;
 
+// -----------------------------------------------------------------------------------
+SampleMovementCheck::SampleMovementCheck()
+{
+	count = 1;  xdrift = 0;ydrift = 0; detected=0;
+}
+
+void SampleMovementCheck::Update(Point2f current, Point2f prediction)
+{
+	count ++;
+
+	xdrift += (current.x - prediction.x) ;
+	ydrift += (current.y - prediction.y) ;
+}
+
+double SampleMovementCheck::CheckLimits()
+{
+	// means drift
+	detected |= sqrt(xdrift*xdrift + ydrift*ydrift)/count > 12;
+	return detected ;
+}
+
+// -----------------------------------------------------------------------------------
 SpermDetectors::SpermDetectors(ReadConfig &config)
 {
 	_config = &config;
@@ -394,7 +416,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	// input video open
 	CapRead capture;
 	capture.openfile(filename);
-cout << capture.get_frame_count() << " " << capture.framesize() << " " << capture.width() << " " << capture.height() << endl;
+
 	if(!capture.is_open())
 	{
 		cerr << "Problem opening video source" << endl;
@@ -427,15 +449,16 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 	
 	// stat
 	Statistics stats(config);
+	SampleMovementCheck movementcheck;
 
 	// the most important tracker params
 	// float _dt, float _Accel_noise_mag, double _dist_thres, int _maximum_allowed_skipped_frames,int _max_trace_length)
 	double KFA = config.GetParam("KalmanFilterAcceleration", 1);
 	CTracker tracker[4] = {
-		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1), 
-		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1), 
-		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1), 
-		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 10, -1)};
+		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 5, -1),
+		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 5, -1),
+		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 5, -1),
+		CTracker (DeltaTime, KFA, statfile, trackfile, MaxStepDistanceInPixels, 5, -1)};
 
 	// detectors
 	SpermDetectors detector[4] = {SpermDetectors(config), SpermDetectors(config), SpermDetectors(config), SpermDetectors(config)};
@@ -448,7 +471,6 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 
 	// limit ROI size to 250 per frame according to sperm count
 	unsigned int EstimatedSpermCount;
-	int ROIwidth = 400;
 	SpermDetectors singleusedetector(config);
 
 	// main loop
@@ -482,12 +504,14 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 				errorcode = -2;
 				break;
 			}
-			if (EstimatedSpermCount < 100)
+			if (EstimatedSpermCount == 0)
 			{
 				cout << "nothing, exiting. " << endl;
 				errorcode = -3;
 				break;
 			}
+
+			// set subwindow based on total count
 			if (EstimatedSpermCount>1200)
 				SubWindowNum = 1;
 			else if	(EstimatedSpermCount>700)
@@ -508,24 +532,24 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 
 			// selection of amount
 			if (SubWindowNum == 1)
-				myROI = Rect(200, 150, ROIwidth, 300);
+				myROI = Rect(200, 150, 400, 300);
 			else if (SubWindowNum == 2) {
 				switch(subwindow) {
-				case 0: myROI = Rect(0+400-ROIwidth, 150, ROIwidth, 300); break;
-				default: myROI = Rect(399, 150, ROIwidth, 300); break;
+				case 0: myROI = Rect(0, 150, 400, 300); break;
+				default: myROI = Rect(399, 150, 400, 300); break;
 				}
 			}
 			else if (SubWindowNum == 4) {
 				switch(subwindow) {
-				case 0: myROI = Rect(0+400-ROIwidth, 0, ROIwidth, 300); break;
-				case 1: myROI = Rect(0+400-ROIwidth, 299, ROIwidth, 300); break;
-				case 2: myROI = Rect(399, 0, ROIwidth, 300); break;
-				default: myROI = Rect(399, 299, ROIwidth, 300); break;
+				case 0: myROI = Rect(0, 0, 400, 300); break;
+				case 1: myROI = Rect(0, 299, 400, 300); break;
+				case 2: myROI = Rect(399, 0, 400, 300); break;
+				default: myROI = Rect(399, 299, 400, 300); break;
 				}
 			} 
 			else
 				// the impossible
-				Rect myROI(200, 150, ROIwidth, 300);
+				Rect myROI(200, 150, 400, 300);
 			
 			inputimage =  frame(myROI);
 				
@@ -540,7 +564,16 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 					detector[subwindow].Dense(inputimage, centers[subwindow]); 
 					break;	
 			}
-				
+
+			// sum up short term motion vectors into four quadrants
+			for(unsigned int i=0;i<tracker[subwindow].tracks.size();i++)
+			{
+				// movement
+				if (tracker[subwindow].tracks[i]->valid)
+					if ((tracker[subwindow].tracks[i]->get_filterred_speed() < 35) && (tracker[subwindow].tracks[i]->get_filterred_speed() > 5))
+						movementcheck.Update(tracker[subwindow].tracks[i]->trace[0], tracker[subwindow].tracks[i]->trace[tracker[subwindow].tracks[i]->trace.size()-1]);
+			}
+
 			// convert to micrometers
 			for(unsigned int i=0;i<centers[subwindow].size();i++)
 				centers[subwindow][i] = centers[subwindow][i] * MicronPerPixel;
@@ -552,17 +585,29 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 			// statistics
 			// concentration in 1 milliliter  =  1e+12 cubic micrometer
 			// in millions
-			stats.UpdateGrages(tracker[subwindow].tracks, 1/ ((ChannelHeight * MicronPerPixel*300 * MicronPerPixel*ROIwidth)/1e12) / 1e6);
+			stats.UpdateGrages(tracker[subwindow].tracks, 1/ ((ChannelHeight * MicronPerPixel*300 * MicronPerPixel*400)/1e12) / 1e6);
 		} // subwindows
 
 		// logs
-		std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
+		//std::cout << "concentration [millions/ml]:   " << stats.GetConcentration()  << std::endl;
 		//std::cout << "sperm count:   " << stats.GetSpermCount()*SubWindowNum  << std::endl;
 		//std::cout << stats.GetGradeA() << " " << stats.GetGradeB() << " " << stats.GetGradeC() << " " << stats.GetGradeD() << " " << std::endl;
 		//std::cout << cyclecounter * DeltaTime << std::endl;
 
+		// motion check
+		if (movementcheck.CheckLimits())
+		{
+			cout << "drift detected, exiting. " << endl;
+			errorcode = -4;
+			break;
+		}
+
 		cyclecounter++;
 	}
+
+
+	capture.shut();
+	free(img_buffer);
 
 	// close all open tracks to use the open statfile before it closes
 	for(int subwindow = 0;subwindow < SubWindowNum; subwindow++)
@@ -570,7 +615,13 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 		tracker[subwindow].Restart();
 		detector[subwindow].~SpermDetectors();
 	}
-	capture.shut();
+
+	// if nothing
+	if (stats.GetSpermCount() == 0)
+	{
+		cout << "nothing, exiting. " << endl;
+		errorcode = -3;
+	}
 
 	// results, concentration, abcd grades
 	if (errorcode != 0)
@@ -597,8 +648,7 @@ cout << capture.get_frame_count() << " " << capture.framesize() << " " << captur
 		fclose(trackfile);
 	}
 
-	free(img_buffer);
-	cout << "Analysis ready. " << endl;
+	cout << "Analysis ready, hey. " << errorcode << endl;
 
 	return errorcode;
 }

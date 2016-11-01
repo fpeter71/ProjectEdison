@@ -81,6 +81,15 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 	
 	memset(buffer, 0, 512);
+	sprintf(buffer, "%s/slidemove.jpg", _path);
+	_img_res = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+
+	if(!_img_res.data){
+		_err_num = 15;
+		return;
+	}
+
+	memset(buffer, 0, 512);
 	sprintf(buffer, "%s/nospermatall.jpg", _path);
 	_img_res_nosperm = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
@@ -133,8 +142,6 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 		_err_num = 14;
 		return;
 	}
-
-	_img_res = _img_info;
 
 	_home_screen = false;
 	_rec_screen = false;
@@ -439,31 +446,34 @@ void etm::Interface::res_screen(double *results)
 	_img = _img_res;
 	draw_image(0, 0);
 
-	sprintf(buf, "WHO A grade: %.1lf %%", results[1]);
-	set_cursor(0, 55);
+	sprintf(buf, "Immotile:   %.1lf%%", results[4]);
+	set_cursor(0, 0);
 	println(buf);
 
-	sprintf(buf, "WHO B grade: %.1lf %%", results[2]);
-	set_cursor(0, 85);
+	sprintf(buf, "Motility:   %.1lf%%", results[1]+results[2]+results[3]);
+	set_cursor(0, 20);
 	println(buf);
 
-	sprintf(buf, "WHO C grade: %.1lf %%", results[3]);
-	set_cursor(0, 115);
+	sprintf(buf, "Progressive:%.1lf%%", results[1]+results[2]);
+	set_cursor(0, 40);
 	println(buf);
 
-	sprintf(buf, "WHO D grade: %.1lf %%", results[4]);
-	set_cursor(0, 145);
+	set_cursor(0, 70);
+	println("WHO ABCD grades:");
+
+	sprintf(buf, "%d%%, %d%%, %d%%, %d%%", (int)results[1],(int)results[2], (int)results[3], (int)results[4]);
+	set_cursor(0, 90);
 	println(buf);
 
 	sprintf(buf, "Sperm count: %d", (int)results[5]);
-	set_cursor(0, 195);
+	set_cursor(0, 120);
 	println(buf);
 	
-	set_cursor(0, 210);
+	set_cursor(0, 140);
 	println("Concentration:");
 
-	sprintf(buf, "%.1lf millions/ml", results[0]);
-	set_cursor(0, 225);
+	sprintf(buf, " %.1lf millions/ml", results[0]);
+	set_cursor(0, 155);
 	println(buf);
 
 	_res_screen = true;
