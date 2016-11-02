@@ -12,12 +12,12 @@
 
 using namespace std;
 
-#define SHOWIT
+//#define SHOWIT
 #define TRACK
 //#define EVAL
 #define TRACKLINES
 
-
+/*
 class SampleMovementCheck {
 	double xdrift, ydrift;
 	int	count;
@@ -43,7 +43,7 @@ public:
 
 	SampleMovementCheck() { count = 1; xdrift = 0;ydrift = 0;detected=0;};
 };
-
+*/
 // detectionmethod if -1, it comes from the settings file
 int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, int howmanyquarters,  int analysistime, char *statisticsfilename, char *trackfilename, char *snapshotfilename, double *CABCD)
 {
@@ -146,8 +146,7 @@ int AnalyseVideoPC(const char *filename, char *settings, int detectionmethod, in
 
 	char key = 0; 
 	SubWindowNum = -1;
-	movementcheck.ResetCounter();
-
+	
 	while( key != 27 ) 
 	{
 		key= cv::waitKey(30);
@@ -352,8 +351,6 @@ imshow("focus",sperm);
 		
 		for (int subwindow=0;subwindow<SubWindowNum;subwindow++) 
 			totalsperms += centers[subwindow].size();
-		
-		cout << movementcheck.CheckLimits()  << endl;
 		
 		if (cyclecounter == 20)
 			std::cout << "totalsperms " << totalsperms << endl;
@@ -571,8 +568,10 @@ int findgolden(const char *name, double *abcd)
 	}
 
 	fseek(golden, 0, SEEK_SET);
+	int id;
 	while(! feof(golden)) {
-		fscanf(golden, "%s %lf %lf %lf %lf\n", buf, &abcd[0], &abcd[1], &abcd[2], &abcd[3]);
+		// Name	Videofilename	Motility	Progressive	Viability	Total Cells
+		fscanf(golden, "%d %s %lf %lf %lf %lf\n", &id, buf, &abcd[0], &abcd[1], &abcd[2], &abcd[3]);
 		strcat(buf, ".cap");
 		if (strcmp(name, buf) == 0) {
 			fclose(golden);		
@@ -594,6 +593,7 @@ int main(int argc, char **argv)
 	FILE *evalfile = NULL;
 #ifdef TRACK
 	statfile = fopen("results.dat", "w");
+	fclose(statfile);
 #endif
 #ifdef EVAL
 	evalfile = fopen("jorossz.csv", "w");
@@ -646,9 +646,9 @@ int main(int argc, char **argv)
 	string dstr;
 
 	// 45 84 116 121
-	for (i=116; i<filelist.size(); i++)
+	for (i=0; i<filelist.size(); i++)
 	{
-	//	if (findgolden( (filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str(), CABCDref) )
+		if (findgolden( (filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str(), CABCDref) )
 		{
 			cout << endl << endl << i << "/" << filelist.size() << endl;
 			cout << filelist[i] << " " << i << "/" << filelist.size() << endl;
@@ -658,16 +658,19 @@ int main(int argc, char **argv)
 	#endif
 			sprintf(statisticsfilename, "%d.stat", i );
 	
-			int key = AnalyseVideoPC(filelist[i].c_str(), settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
+			//int key = AnalyseVideoPC(filelist[i].c_str(), settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
 			//int key = SaveAVI(filelist[i].c_str(), (filelist[i].substr(0,filelist[i].find_last_of(".")) + ".avi").c_str());
-			//int key;
-			//Interface dummy;
-			//key= cv::waitKey(30);
-			//char filename[256];
-			//strcpy(filename, filelist[i].c_str());
-			//AnalyseVideo(filename,dummy, settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
-
+			int key;
+			
+			Interface dummy;
+			//int key= cv::waitKey(30);
+			char filename[256];
+			strcpy(filename, filelist[i].c_str());
+			key = AnalyseVideo(filename,dummy, settings, -1, -1,  analysistime, statisticsfilename, trackfilename, snapshotfilename, CABCDtimearea);
+			cout << "quality " << key << endl;
 		
+			key= cv::waitKey(30);
+
 	#ifdef SHOWIT			
 			destroyAllWindows();
 	#endif
@@ -692,9 +695,7 @@ int main(int argc, char **argv)
 				std::cout << "grade B: " <<  CABCDtimearea[2] << std::endl;
 				std::cout << "grade C: " <<  CABCDtimearea[3] << std::endl;
 				std::cout << "grade D: " <<  CABCDtimearea[4] << std::endl;
-
-				std::cout << "grade D: " <<  CABCDtimearea[4] << std::endl;
-
+				
 				/*
 				if (i==0)
 					fprintf(statfile, "Filename; Concentration; Grade A; Grade B; Grade C; Grade D; Sperm count\n");
@@ -704,14 +705,15 @@ int main(int argc, char **argv)
 				replace(dstr.begin(), dstr.end(), '.',',');
 				fprintf(statfile, "%s;%s\n", filelist[i].c_str(), dstr.c_str() );
 				*/
-
+				statfile = fopen("results.dat", "a");
 				fprintf(statfile, "%s ",(filelist[i].substr(filelist[i].find_last_of("/\\") + 1)).c_str());
-				fprintf(statfile, "%.1lf %.1lf %.1lf %.1lf    ",CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3],  CABCDtimearea[4]);
+				//fprintf(statfile, "%.1lf %.1lf %.1lf %.1lf    ",CABCDtimearea[1],  CABCDtimearea[2],  CABCDtimearea[3],  CABCDtimearea[4]);
 				fprintf(statfile, "%.1lf %.1lf  ",CABCDtimearea[1] + CABCDtimearea[2] +  CABCDtimearea[3],  CABCDtimearea[1] + CABCDtimearea[2] );
 				fprintf(statfile, "%.1lf %.1lf\n", CABCDref[0],  CABCDref[1]);
-			
+				fclose(statfile);
+
 				cout << CABCDtimearea[1] + CABCDtimearea[2] +  CABCDtimearea[3] <<  "/" <<  CABCDtimearea[1] + CABCDtimearea[2] << "   ";
-				cout << CABCDref[0] << "/" <<  CABCDref[1] << endl;
+				cout << "ref: " <<  CABCDref[0] << "/" <<  CABCDref[1] << endl;
 			}
 
 #endif		

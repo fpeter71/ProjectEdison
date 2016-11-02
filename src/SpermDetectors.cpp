@@ -617,14 +617,14 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 	}
 
 	// if nothing
-	if (stats.GetSpermCount() == 0)
+	if ((errorcode == 0)&&(stats.GetSpermCount() == 0))
 	{
 		cout << "nothing, exiting. " << endl;
 		errorcode = -3;
 	}
 
 	// results, concentration, abcd grades
-	if (errorcode != 0)
+	if (errorcode == 0)
 	{
 		CABCD[0] = stats.GetConcentration();
 		CABCD[1] = stats.GetGradeA();
