@@ -395,6 +395,10 @@ void etm::Interface::info_screen(etm::Info &etinfo, etm::Wifi &etwifi)
 		println("Wi-Fi: Not connected");
 	}
 
+	println("");
+	println("Microfluidlabs Kft.");
+	println("www.microfluidlabs.com");
+
 	_info_screen = true;
 }
 
