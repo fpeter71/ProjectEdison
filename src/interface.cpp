@@ -81,6 +81,15 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	}
 	
 	memset(buffer, 0, 512);
+	sprintf(buffer, "%s/microscope.jpg", _path);
+	_img_microscope = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
+
+	if(!_img_microscope.data){
+		_err_num = 16;
+		return;
+	}
+	
+	memset(buffer, 0, 512);
 	sprintf(buffer, "%s/slidemove.jpg", _path);
 	_img_res = cv::imread(buffer, CV_LOAD_IMAGE_COLOR);
 
@@ -149,6 +158,7 @@ etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 	_temp_screen = false;
 	_info_screen = false;
 	_res_screen = false;
+	_microscope_screen = false;
 	_res_nosperm_screen = false;
 	_res_moved_screen = false;
 	_res_toodense_screen = false;
@@ -229,6 +239,18 @@ void etm::Interface::focus_help_screen(void)
 	draw_image(0, 0);
 
 	_focus_help_screen = true;
+}
+
+void etm::Interface::microscope_screen(void)
+{
+	if(_microscope_screen)
+		return;
+
+	_img = _img_microscope;
+
+	draw_image(0, 0);
+
+	_microscope_screen = true;
 }
 
 void etm::Interface::focus_screen(uint32_t width, uint32_t height, uint8_t *data, char *pxf)

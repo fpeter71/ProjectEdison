@@ -1,4 +1,4 @@
-#include <stdio.h>
+ï»¿#include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <pthread.h>
@@ -17,7 +17,7 @@
 #include "SpermDetectors.h"
 #include <opencv2/opencv.hpp>
 
-// megszabadulunk a "deprecated conversion from string constant to 'char*' [-Wwrite-strings]" figyelmeztetést?l
+// megszabadulunk a "deprecated conversion from string constant to 'char*' [-Wwrite-strings]" figyelmeztetï¿½st?l
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 // method, area, timeofrec removed
 enum program_state { home, setupparameters, heatandchip, focus, recandcalc, res, res_nosperm, res_moved, res_toodense, wifi, info };
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 					etinterf.temp_screen(etpic);
 					mssleep(250);
 
-					// csak h ki lehessen lépni
+					// csak h ki lehessen lï¿½pni
 					if(!running)
 						goto cam_end;
 				}
@@ -267,8 +267,12 @@ int main(int argc, char **argv)
 
 				if(buttons_state & BTN_C_MASK){
 					etinterf.focus_help_screen_reset();
-
+					
+					// put wait screen
+					etinterf.microscope_screen();
 					microscope_start(etlog, etcam, etpic, etinterf);
+					etinterf.microscope_screen_reset();
+
 					focus_sub(etlog, etcam, etpic, etinterf);
 					break;
 				}else if(buttons_state & BTN_D_MASK){
