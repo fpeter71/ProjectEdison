@@ -28,6 +28,7 @@ private:
 		bool _chip_screen;
 		bool _temp_screen;
 		bool _info_screen;
+		bool _microscope_screen;
 		bool _calc_screen;
 		bool _res_screen;
 		bool _res_nosperm_screen;
@@ -45,6 +46,7 @@ private:
 		cv::Mat _img_temp;
 		cv::Mat _img_cow;
 		cv::Mat _img_info;
+		cv::Mat _img_microscope;
 		cv::Mat _img_res_nosperm;
 		cv::Mat _img_res_moved;
 		cv::Mat _img_res_toodense;
@@ -80,6 +82,9 @@ public:
 
 		void res_screen(double *results);
 		void res_screen_reset(void) { _res_screen = false; };
+		
+		void microscope_screen(void);
+		void microscope_screen_reset(void) { _microscope_screen = false; };
 
 		void temp_screen(etm::coMCU &etpic);
 		void temp_screen_reset(void) { _temp_screen = false; };
