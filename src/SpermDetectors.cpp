@@ -504,13 +504,7 @@ int AnalyseVideo(char *filename, Interface &etinterf, char *settings, int detect
 				errorcode = -2;
 				break;
 			}
-			if (EstimatedSpermCount == 0)
-			{
-				cout << "nothing, exiting. " << endl;
-				errorcode = -3;
-				break;
-			}
-
+			
 			// set subwindow based on total count
 			if (EstimatedSpermCount>1200)
 				SubWindowNum = 1;
