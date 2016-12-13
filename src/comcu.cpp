@@ -32,6 +32,7 @@ uint8_t etm::coMCU::get_buttons_state(void)
 
 float etm::coMCU::get_temp(void)
 {
+	/*
 	_err_num = 0;
 
 	char T1, T2;
@@ -51,23 +52,43 @@ float etm::coMCU::get_temp(void)
 	}
 
 	return convert_temp(temp);
+	*/
+
+	char text[15];
+	memset(text, 0, 15);
+	get_temp_str(text);
+
+	return atof(text);
+}
+
+void etm::coMCU::get_temp_str(char *s)
+{
+	send_cmd(CMD_GET_TEMP_STR);
+	int i = 0;
+	char ch;
+
+	while(data_avaliable()){
+		 ch = read_ch();
+	 	 if(ch == '\n' || ch == '\r')
+	 		 break;
+
+	 	 s[i++] = ch;
+	}
+
+	while(data_avaliable())
+		ch = read_ch();
+
 }
 
 float etm::coMCU::convert_temp(unsigned int temp)
 {
-	char temp_whole = temp >> RES_SHIFT;
-	unsigned int temp_fraction;
+	unsigned int temp2write = temp;
+	char tempWhole = 0;
 
-	temp_fraction = temp << (4-RES_SHIFT);
-	temp_fraction &= 0x000F;
-	temp_fraction *= 625;
+	// Extract tempWhole
+	tempWhole = temp2write >> RES_SHIFT ;
 
-	float tempf = (float)temp_whole + temp_fraction;
-
-	if(tempf > 5000.0)
-		tempf -= 5000.0;
-
-	return tempf;
+	return tempWhole;
 }
 
 void etm::coMCU::write_temp(void)

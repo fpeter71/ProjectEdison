@@ -1,4 +1,4 @@
-#include "interface.h"
+﻿#include "interface.h"
 
 etm::Interface::Interface(const char *path) : Adafruit_TFTLCD()
 {
@@ -304,7 +304,7 @@ void etm::Interface::rec_screen_update(double time)
 	fill_rect(10 + _last_w, 250, w - _last_w, 20, ILI9341_GREEN);
 	_last_w = w;
 }
-
+/*
 void etm::Interface::temp_screen(etm::coMCU &etpic)
 {
 	char buf[32];
@@ -330,6 +330,39 @@ void etm::Interface::temp_screen(etm::coMCU &etpic)
 
 	_temp_screen = true;
 }
+*/
+
+
+void etm::Interface::temp_screen(etm::coMCU &etpic)
+{
+	char buf[32];
+	char tempstr[15];
+	memset(tempstr, 0, 15);
+
+	set_text_color(ILI9341_WHITE);
+	set_text_size(3);
+
+	if(!_temp_screen)
+	{
+		_img = _img_temp;
+
+		draw_image(0, 0);
+	}
+
+	//etpic.get_temp_str(tempstr);
+	// t = atof(tempstr);
+	float t = etpic.get_temp();
+
+	if(t != 0){
+		sprintf(buf, "%.1f oC", t);
+		set_cursor(30, 260);
+		fill_rect(0, 260, 240, 20, ILI9341_BLACK);
+		println(buf);
+	}
+
+	_temp_screen = true;
+}
+
 
 void etm::Interface::chip_screen(void)
 {

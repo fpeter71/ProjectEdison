@@ -96,7 +96,7 @@ int main(int argc, char **argv)
 
 	etm::Log etlog("/var/log/bgt.log", LOG_ERROR | LOG_WARNING | LOG_INFO | LOG_DISPLAY, !silent);
 	etm::Cam etcam("/dev/video0", 800, 600, "YUYV", 24);
-	etm::coMCU etpic(30.0, 37.0);
+	etm::coMCU etpic(34.0, 37.0);
 	etm::Interface etinterf("/opt/bgt/pix");
 	etm::Cap etcap("/home/root");
 	etm::Info etinfo("MFL202M", 1, 1);
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
 
 				while(!etpic.is_temp_ok()){
 					etinterf.temp_screen(etpic);
-					mssleep(250);
+					mssleep(1000);
 
 					// csak h ki lehessen l�pni
 					if(!running)
