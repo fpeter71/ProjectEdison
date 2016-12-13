@@ -8,6 +8,7 @@
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
 #define	CMD_GET_TEMP		"#T;"
+#define	CMD_GET_TEMP_STR	"#t;"
 #define CMD_MOT_PLUS(X)		"#+"X";"
 #define CMD_MOT_MINUS(X)	"#-"X";"
 #define CMD_MOT_OFF			"#*;"
@@ -35,7 +36,7 @@
 #define BATT_CHARG	'E'
 #define BATT_DEAD	'G'
 
-#define	TEMP_RESOLUTION 	9
+#define	TEMP_RESOLUTION 	12
 #define RES_SHIFT  			(TEMP_RESOLUTION - 8)
 
 namespace etm{
@@ -51,6 +52,7 @@ public:
 	uint8_t get_buttons_state(void);
 
 	float get_temp(void);
+	void get_temp_str(char *s);
 	void write_temp(void);
 
 	void cam_led_on(void);
