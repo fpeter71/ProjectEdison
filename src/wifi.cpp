@@ -246,7 +246,7 @@ void etm::Wifi::connect(char *ESSID)
 	while(fgets(line, sizeof(line), _pipe) != NULL){
 
 		if(isdigit(line[0]))
-			copy_wo_specs(_network, line);
+			copy_wo_specs(line, _network);
 
 		if(strncmp(line, "OK", 2) == 0)
 			break;
